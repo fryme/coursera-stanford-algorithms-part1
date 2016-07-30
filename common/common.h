@@ -16,6 +16,7 @@ void print_array(T& array, int size) {
 
 void read_from_file(const std::wstring& filepath, std::vector<int32_t>& arr)
 {
+	arr.clear();
 	std::ifstream input(filepath);
 	for (std::string line; std::getline(input, line);)
 		arr.push_back(std::stoi(line));
