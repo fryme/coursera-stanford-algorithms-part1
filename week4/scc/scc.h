@@ -5,8 +5,11 @@
 #include <vector>
 #include <list>
 #include <map>
+#include <stack>
 #include <sstream>
 #include <fstream>
+#include <boost/foreach.hpp>
+#include <boost/algorithm/string.hpp>
 
 #define CHECK_AND_THROW(expression, text) if (!expression) throw std::runtime_error(text);
 
@@ -15,6 +18,7 @@ class DirectedGraph
 	typedef uint32_t VertexId;
 	struct Vertex
 	{
+		uint32_t id;
 		std::list<VertexId> links;
 	};
 
@@ -60,43 +64,111 @@ public:
 			stream << std::endl;
 		}
 	}
-
-	void DFS()
+	
+	DirectedGraph ReverseGraph(const std::vector<uint32_t>& newOrder)
 	{
-		std::map<uint32_t, bool> visitedVertexes = GetAllNodes();
-		visitedVertexes;
-		m_vertexes;
-		for each(auto& vertex in m_vertexes)
+		DirectedGraph gRev;
+		
+		BOOST_FOREACH(const auto& v, m_vertexes)
 		{
-			auto& links = vertex.second.links;
-			for each (auto& link in links)
+			Vertex vRev;
+			std::cout << v.first << std::endl;
+			int pos = (std::find(newOrder.begin(), newOrder.end(), v.first) - newOrder.begin());
+			CHECK_AND_THROW(pos != newOrder.size(), "Out of border");
+			vRev.id = pos;
+
+			BOOST_FOREACH(const auto& link, v.second.links)
 			{
-				if (!visitedVertexes[link])
-				{
-					visitedVertexes[link] = true;
-				}
+				// v -> link, link -> v
+
 			}
 		}
-		//visitedVertexes
+
+		return gRev;
+	}
+
+	class DFSWalker
+	{
+	public:
+		DFSWalker(const VertexArray& va) : m_vertexes(va) 
+		{
+			m_visitedVertexes = GetAllNodesAsUnvisited();
+			m_newOrder.resize(m_vertexes.size());
+		}
+
+		std::map<uint32_t, bool> GetAllNodesAsUnvisited()
+		{
+			std::map<uint32_t, bool> keys;
+			BOOST_FOREACH(auto& vertex, m_vertexes)
+				keys.insert(std::make_pair(vertex.first, false));
+		}
+
+		bool IsVertexVisited(uint32_t v)
+		{
+			BOOST_FOREACH(auto& vv, m_visitedVertexes)
+				std::cout << "IsVisited: " << vv.first << " " << vv.second << std::endl;
+			return m_visitedVertexes[v];
+		};
+
+		void SetVertexVisited(uint32_t v)
+		{
+			m_visitedVertexes[v] = true;
+		};
+
+		void Walk(std::vector<uint32_t>& newOrder)
+		{
+			m_newOrderCounter = 0;
+
+			BOOST_FOREACH(const auto& vertex, m_vertexes)
+			{
+				if (!IsVertexVisited(vertex.first))
+				{
+					std::cout << "Walk " << vertex.first << std::endl;
+					DFSWalk(vertex.second, 0);
+				}
+			}
+			newOrder = m_newOrder;
+			std::cout << "New order:";
+			BOOST_FOREACH(const auto& n, m_newOrder)
+			{
+				std::cout << n << " ";
+			}
+			std::cout << std::endl;
+		}
+
+		void DFSWalk(const Vertex& vertex, uint32_t visitedLinks)
+		{
+			SetVertexVisited(vertex.id);
+
+			BOOST_FOREACH(const auto& link, vertex.links)
+			{
+				std::cout << "DFSWalk " << link << std::endl;
+				if (!IsVertexVisited(link))
+				{
+					DFSWalk(m_vertexes.at(link), visitedLinks);
+				}
+				else
+				{
+					visitedLinks++;
+				}
+			}
+			m_newOrder[m_newOrderCounter++] = vertex.id;
+		}
+		uint32_t 				 m_newOrderCounter;
+
+	private:
+		const VertexArray& 			 m_vertexes;
+		std::map<uint32_t, bool> m_visitedVertexes;
+		std::vector<uint32_t> 	 m_newOrder;
+	};
+
+	void DFS(std::vector<uint32_t>& newOrder)
+	{
+		DFSWalker walker(m_vertexes);
+		walker.Walk(newOrder);
 	}
 
 private:
-	
-	std::map<uint32_t, bool> GetAllNodes()
-	{
-		std::map<uint32_t, bool> keys;
-		for each(auto& vertex in m_vertexes)
-			keys.insert(std::make_pair(vertex.first, false));
-	}
-
-	void split(const std::string &s, char delim, std::vector<std::string> &elems)
-	{
-		std::stringstream ss(s);
-		std::string item;
-		while (getline(ss, item, delim)) {
-			elems.push_back(item);
-		}
-	}
 
 	void Read(std::istream& input)
 	{
@@ -105,8 +177,7 @@ private:
 		for (std::string line; std::getline(input, line);)
 		{
 			nodes.clear();
-			//boost::split(nodes, line, boost::is_any_of(" "));
-			split(line, ' ', nodes);
+			boost::split(nodes, line, boost::is_any_of(" "));
 			CHECK_AND_THROW(nodes.size() == 2, "More than two nodes given");
 			
 			auto& tail = nodes[0];
@@ -127,6 +198,7 @@ private:
 				// the key does not exist in the map
 				// add it to the map
 				Vertex v;
+				v.id = intTail;
 				v.links.push_back(intHead);
 				m_vertexes.insert(lb, VertexArray::value_type(intTail, v));    // Use lb as a hint to insert,
 																// so it can avoid another lookup
